@@ -1,0 +1,76 @@
+import re
+
+# Function to add labels to SQL statements
+def add_labels(content, counter):
+    labeled_content = f'.LABEL {counter}\n'
+    labeled_content += f'SELECT \'{counter}\' as lg_delete\n'
+    labeled_content += f'{content.strip()}\n'
+    return labeled_content, counter + 1
+
+# Function to check if a statement creates a volatile table and extract the table name
+def extract_volatile_table_name(statement):
+    match = re.search(r'CREATE\s+VOLATILE\s+TABLE\s+(\w+)', statement, re.IGNORECASE)
+    return match.group(1) if match else None
+
+# Function to check if a statement involves any volatile tables by name
+def involves_volatile_table(statement, volatile_tables):
+    # Check if any of the volatile table names appear in the statement
+    for table in volatile_tables:
+        if re.search(rf'\b{table}\b', statement, re.IGNORECASE):
+            return True
+    return False
+
+# Path to the script file
+script_path = 'C:\\Users\\id\\Desktop\\script.sql'
+
+# Read the script content from the file
+with open(script_path, 'r') as file:
+    script_content = file.read()
+
+# Split the script content into individual statements
+statements = re.split(r';\s*', script_content)
+
+# Initialize counter and list to track volatile tables
+counter = 1
+volatile_tables = []
+
+# Add labels to each statement
+labeled_statements = []
+skip_labeling = False
+
+for statement in statements[:-1]:  # Exclude the last empty statement after the final semicolon
+    # Check if the statement creates a volatile table
+    table_name = extract_volatile_table_name(statement)
+    if table_name:
+        # Add the table name to the volatile table list and skip labeling
+        volatile_tables.append(table_name)
+        labeled_statements.append(statement.strip())
+        skip_labeling = True
+    elif involves_volatile_table(statement, volatile_tables):
+        # Skip labeling for statements involving volatile tables
+        labeled_statements.append(statement.strip())
+        skip_labeling = True
+    else:
+        # Add labels to the statement only if it's not related to volatile tables
+        if not skip_labeling:
+            labeled_statement, counter = add_labels(statement, counter)
+            labeled_statements.append(labeled_statement)
+        else:
+            # Reset the skip flag after processing statements involving volatile tables
+            skip_labeling = False
+
+# Add a semicolon after each labeled statement except for the last one
+labeled_script = ''
+for i, statement in enumerate(labeled_statements):
+    labeled_script += statement
+    if i != len(labeled_statements) - 1:  # If not the last statement
+        labeled_script += ';\n'
+
+# Path to save the modified script
+output_path = 'C:\\Users\\id\\Desktop\\labeled_script.sql'
+
+# Write the modified script to a new file
+with open(output_path, 'w') as file:
+    file.write(labeled_script)
+
+print("Labeled script created successfully.")
