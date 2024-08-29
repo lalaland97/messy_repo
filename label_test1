@@ -1,0 +1,61 @@
+import re
+
+# Function to add labels to SQL statements
+def add_labels(content, counter):
+    labeled_content = f'.LABEL {counter}\n'
+    labeled_content += f'SELECT \'{counter}\' as lg_delete\n'
+    labeled_content += f'{content.strip()}\n'
+    return labeled_content, counter + 1
+
+# Function to check if a statement involves a volatile table
+def is_volatile_table(statement):
+    # Checking for keywords related to volatile tables
+    return re.search(r'CREATE\s+VOLATILE\s+TABLE', statement, re.IGNORECASE) is not None
+
+# Path to the script file
+script_path = 'C:\\Users\\id\\Desktop\\script.sql'
+
+# Read the script content from the file
+with open(script_path, 'r') as file:
+    script_content = file.read()
+
+# Split the script content into individual statements
+statements = re.split(r';\s*', script_content)
+
+# Initialize counter
+counter = 1
+
+# Add labels to each statement
+labeled_statements = []
+skip_labeling = False
+
+for statement in statements[:-1]:  # Exclude the last empty statement after the final semicolon
+    # Check if the statement involves a volatile table
+    if is_volatile_table(statement):
+        # Skip labeling for this statement and set flag
+        labeled_statements.append(statement.strip())
+        skip_labeling = True
+    else:
+        # Add labels to the statement only if it's not marked to skip
+        if not skip_labeling:
+            labeled_statement, counter = add_labels(statement, counter)
+            labeled_statements.append(labeled_statement)
+        else:
+            # Reset the skip flag after a non-volatile table statement
+            skip_labeling = False
+
+# Add a semicolon after each labeled statement except for the last one
+labeled_script = ''
+for i, statement in enumerate(labeled_statements):
+    labeled_script += statement
+    if i != len(labeled_statements) - 1:  # If not the last statement
+        labeled_script += ';\n'
+
+# Path to save the modified script
+output_path = 'C:\\Users\\id\\Desktop\\labeled_script.sql'
+
+# Write the modified script to a new file
+with open(output_path, 'w') as file:
+    file.write(labeled_script)
+
+print("Labeled script created successfully.")
