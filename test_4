@@ -1,0 +1,76 @@
+import re
+
+# Function to add labels to SQL statements
+def add_labels(content, counter):
+    labeled_content = f'.LABEL {counter}\n'
+    labeled_content += f'SELECT \'{counter}\' as lg_delete\n'
+    labeled_content += f'{content.strip()}\n'
+    return labeled_content, counter + 1
+
+# Function to detect and modify volatile table creation statements to create permanent tables in the specified database
+def modify_volatile_table_creation(statement):
+    # Modify the statement to create a permanent table in lab_tc14_otmidb
+    modified_statement = re.sub(
+        r'CREATE\s+(MULTISET\s+)?VOLATILE\s+TABLE\s+(\w+)', 
+        r'CREATE TABLE lab_tc14_otmidb.\2', 
+        statement, 
+        flags=re.IGNORECASE
+    )
+    table_name = extract_volatile_table_name(statement)  # Extract table name for tracking
+    return modified_statement, table_name
+
+# Function to check if a statement creates a volatile table and extract the table name
+def extract_volatile_table_name(statement):
+    # Match both 'CREATE VOLATILE TABLE' and 'CREATE MULTISET VOLATILE TABLE'
+    match = re.search(r'CREATE\s+(MULTISET\s+)?VOLATILE\s+TABLE\s+(\w+)', statement, re.IGNORECASE)
+    return match.group(2) if match else None
+
+# Path to the script file
+script_path = 'C:\\Users\\id\\Desktop\\script.sql'
+
+# Read the script content from the file
+with open(script_path, 'r') as file:
+    script_content = file.read()
+
+# Split the script content into individual statements
+statements = re.split(r';\s*', script_content)
+
+# Initialize counter and lists to track modified tables and labeled statements
+counter = 1
+create_statements = []  # List to store modified create statements
+labeled_statements = []  # List to store labeled statements for the main script
+
+for statement in statements[:-1]:  # Exclude the last empty statement after the final semicolon
+    # Check if the statement creates a volatile table
+    table_name = extract_volatile_table_name(statement)
+    if table_name:
+        # Modify the create statement and save it separately
+        modified_statement, _ = modify_volatile_table_creation(statement)
+        create_statements.append(modified_statement.strip())  # Save the modified statement to the list
+    else:
+        # Add labels to the statement and update the counter
+        labeled_statement, counter = add_labels(statement, counter)
+        labeled_statements.append(labeled_statement)
+
+# Combine labeled statements into the main script
+labeled_script = ''
+for i, statement in enumerate(labeled_statements):
+    labeled_script += statement
+    if i != len(labeled_statements) - 1:  # If not the last statement
+        labeled_script += ';\n'
+
+# Paths to save the modified script and create statements
+output_path = 'C:\\Users\\id\\Desktop\\labeled_script.sql'
+create_statements_path = 'C:\\Users\\id\\Desktop\\create_statements.sql'
+
+# Write the labeled script to the main script file
+with open(output_path, 'w') as file:
+    file.write(labeled_script)
+
+# Write the create statements to a separate file
+with open(create_statements_path, 'w') as file:
+    for create_statement in create_statements:
+        file.write(create_statement + ';\n')
+
+print("Labeled script created successfully with volatile tables moved to permanent.")
+print(f"Permanent table creation statements saved to: {create_statements_path}")
