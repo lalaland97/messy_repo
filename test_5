@@ -9,15 +9,16 @@ def add_labels(content, counter):
 
 # Function to detect and modify volatile table creation statements to create permanent tables in the specified database
 def modify_volatile_table_creation(statement):
-    # Modify the statement to create a permanent table in lab_tc14_otmidb
+    # Modify the statement to create a permanent table in lab_tc14_otmidb and remove "WITH DATA ON COMMIT PRESERVE ROWS"
+    # The regex captures "CREATE (MULTISET) VOLATILE TABLE <table_name>", and removes "WITH DATA ON COMMIT PRESERVE ROWS"
     modified_statement = re.sub(
-        r'CREATE\s+(MULTISET\s+)?VOLATILE\s+TABLE\s+(\w+)', 
-        r'CREATE TABLE lab_tc14_otmidb.\2', 
+        r'CREATE\s+(MULTISET\s+)?VOLATILE\s+TABLE\s+(\w+)(.*?)(WITH\s+DATA\s+)?ON\s+COMMIT\s+PRESERVE\s+ROWS\s*;', 
+        r'CREATE TABLE lab_tc14_otmidb.\2\3;', 
         statement, 
-        flags=re.IGNORECASE
+        flags=re.IGNORECASE | re.DOTALL
     )
     table_name = extract_volatile_table_name(statement)  # Extract table name for tracking
-    return modified_statement, table_name
+    return modified_statement.strip(), table_name
 
 # Function to check if a statement creates a volatile table and extract the table name
 def extract_volatile_table_name(statement):
